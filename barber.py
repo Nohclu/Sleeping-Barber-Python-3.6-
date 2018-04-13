@@ -32,7 +32,7 @@ class Customer(threading.Thread):       #Producer Thread
 
     def trim(self):
         print("Customer haircut started.")
-        a = 3 * random.random() #Retrieves random number.
+        a = 1.5 * random.random() #1.5 = 15 minutes
         time.sleep(a) #Simulates the time it takes for a barber to give a haircut.
         payment = self.rate
         print("Haircut finished. Haircut took {}".format(a))    #Barber finished haircut.
@@ -51,25 +51,27 @@ class Barber(threading.Thread):     #Consumer Thread
             self.sleep = True   #If nobody in the Queue Barber sleeps.
         else:
             self.sleep = False  #Else he wakes up.
-        print("------------------\nBarber sleep {}\n------------------".format(self.sleep))
     
     def run(self):
-        global SHOP_OPEN
-        while SHOP_OPEN:            
+        start = time.time()
+        elapsedTime = 0
+        while elapsedTime < 48: #6sec = 60 minutes, 8 = shop Open Duration , 6*8 = 48            
             while self.queue.empty():
                 EVENT.wait()    #Waits for the Event flag to be set, Can be seen as the Barber Actually sleeping.
-                print("Barber is sleeping...")
-            print("Barber is awake.")
             cust = self.queue
             self.is_empty(self.queue)   
             cust = cust.get()  #FIFO Queue So first customer added is gotten.
             cust.trim() #Customers Hair is being cut
             cust = self.queue
             cust.task_done()    #Customers Hair is cut  
-            print(self.name)    #Which Barber served the Customer     
+            print(self.name)    #Which Barber served the Customer
+            elapsedTime = time.time() - start
+        print("DONE")
+        global SHOP_OPEN
+        SHOP_OPEN = False     
 
 def wait():
-    time.sleep(1 * random.random())
+    time.sleep(1.5 * random.random())
 
 if __name__ == '__main__':
     Earnings = 0
@@ -82,16 +84,13 @@ if __name__ == '__main__':
         b.daemon=True   #Makes the Thread a super low priority thread allowing it to be terminated easier
         b.start()   #Invokes the run method in the Barber Class
         barbers.append(b)   #Adding the Barber Thread to an array for easy referencing later on.
-    for c in range(10): #Loop that creates infinite Customers
-        print("----")
-        print(all_customers.qsize())    #Simple Tracker too see the qsize (NOT RELIABLE!)
+    while SHOP_OPEN: #Loop that creates infinite Customers
+        print("Queue size is " + str(all_customers.qsize()))    #Simple Tracker too see the qsize (NOT RELIABLE!)
         wait()
         c = Customer(all_customers) #Passing Queue object to Customer class
         all_customers.put(c)    #Puts the Customer Thread in the Queue
         c.start()   #Invokes the run method in the Customer Class
     all_customers.join()    #Terminates all Customer Threads
     print("€"+str(Earnings))
-    SHOP_OPEN = False
     for i in barbers:
-        i.join()    #Terminates all Barbers
-        #Program hangs due to infinite loop in Barber Class, use ctrl-z to exit.
+        i._stop()    #Terminates all Barbers, causes Assertion error
